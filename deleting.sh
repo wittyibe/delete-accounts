@@ -192,22 +192,21 @@ EOF
 fi
 
 while IFS=, read -r type value username profile_url; do
-  [[ "$type" == "type" ]] && continue  # skip header
-  [[ -z "$type" || -z "$value" ]] && continue
-
-  # Normalize whitespace
-  type="$(echo "$type" | xargs)"
-  value="$(echo "$value" | xargs)"
-  username="$(echo "$username" | xargs)"
-  profile_url="$(echo "$profile_url" | xargs)"
-
-  # Run each platform check (Bumble, Tinder, POF, AshleyMadison, Match)
-  bumble_check_deletion "$type" "$value" "$profile_url"
-  tinder_check_deletion "$type" "$value" "$profile_url"
-  pof_check_deletion "$type" "$value" "$profile_url"
-  am_check_deletion "$type" "$value" "$profile_url"
-  match_check_deletion "$type" "$value" "$profile_url"
-
+    [[ "$type" == "type" ]] && continue # skip header
+    [[ -z "$type" || -z "$value" ]] && continue
+    
+    # Normalize whitespace
+    type="$(echo "$type" | xargs)"
+    value="$(echo "$value" | xargs)"
+    username="$(echo "$username" | xargs)"
+    profile_url="$(echo "$profile_url" | xargs)"
+    
+    # Run each platform check (Bumble, Tinder, POF, AshleyMadison, Match)
+    bumble_check_deletion "$type" "$value" "$profile_url"
+    tinder_check_deletion "$type" "$value" "$profile_url"
+    pof_check_deletion "$type" "$value" "$profile_url"
+    am_check_deletion "$type" "$value" "$profile_url"
+    match_check_deletion "$type" "$value" "$profile_url"
 done < targets.csv
 
 log "Complete. See results/deletion_results.csv and logs/ for evidence."
