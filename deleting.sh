@@ -201,7 +201,12 @@ while IFS=, read -r type value username profile_url; do
     username="$(echo "$username" | xargs)"
     profile_url="$(echo "$profile_url" | xargs)"
     
-    # Run each platform check (Bumble, Tinder, POF, AshleyMadison, Match)
+#!/bin/bash
+# deleting.sh
+# Runs deletion/account checks across multiple platforms.
+
+# Run each platform check (Bumble, Tinder, POF, AshleyMadison, Match)
+while IFS=',' read -r type value profile_url; do
     bumble_check_deletion "$type" "$value" "$profile_url"
     tinder_check_deletion "$type" "$value" "$profile_url"
     pof_check_deletion "$type" "$value" "$profile_url"
@@ -209,8 +214,4 @@ while IFS=, read -r type value username profile_url; do
     match_check_deletion "$type" "$value" "$profile_url"
 done < targets.csv
 
-log "Complete. See results/deletion_results.csv and logs/ for evidence."
-
-# Add these lines to close any potentially unclosed structures:
-fi 2>/dev/null || true
-   2>/dev/null || true
+echo "Complete. See results/deletion_results.csv and logs/ for evidence."
