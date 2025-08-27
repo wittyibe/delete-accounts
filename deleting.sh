@@ -213,5 +213,4 @@ while IFS=',' read -r type value profile_url; do
     am_check_deletion "$type" "$value" "$profile_url"
     match_check_deletion "$type" "$value" "$profile_url"
 done < targets.csv
-
 echo "Complete. See results/deletion_results.csv and logs/ for evidence."
