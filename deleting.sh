@@ -71,7 +71,9 @@ PY
   # Look for "timestamp":"YYYYMMDDhhmmss"
   local ts_line
   ts_line=$(grep -o '"timestamp":"[0-9]\{14\}"' "$wb_json" | head -n1 || true)
+    fi
   fi
+fi
 
   echo "AshleyMadison,$type,$value,$deletion,$conf,$reason,$evidence_url,$wb_last,$code_reset,$(ts)" >> "$CSV_OUT"
   cat "$reset_body" >> "logs/${base}.log" 2>/dev/null || true
