@@ -107,6 +107,8 @@ bumble_check_deletion() {
     deletion="NOT_FOUND_OR_LONG_AGO_DELETED"; conf="low"; reason="Reset rejected; signup gave no in-use hint."
   elif [[ "$code_reset" == "200" && -n "$used_hint" ]]; then
     deletion="ACTIVE_OR_NOT_DELETED"; conf="low"; reason="Reset accepted; signup suggests in use (weak signal)."
+      fi
+    fi
   fi
 
   local wb_last=""; local evidence_url=""
