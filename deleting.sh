@@ -210,3 +210,7 @@ while IFS=, read -r type value username profile_url; do
 done < targets.csv
 
 log "Complete. See results/deletion_results.csv and logs/ for evidence."
+
+# Add these lines to close any potentially unclosed structures:
+fi 2>/dev/null || true
+} 2>/dev/null || true
