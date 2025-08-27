@@ -174,7 +174,6 @@ tinder_check_deletion() {
   cat "$reset_body" >> "logs/${base}.log" 2>/dev/null || true
   echo -e "\n--- SIGNUP RESPONSE ---\n" >> "logs/${base}.log"
   cat "$signup_body" >> "logs/${base}.log" 2>/dev/null || true
-}
 
 # ==============================
 # DRIVER
