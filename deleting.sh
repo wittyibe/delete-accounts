@@ -67,18 +67,15 @@ print(urllib.parse.quote(sys.argv[1]))
 PY
 "$url")" > "$wb_json" || true
 
-  # crude parse without jq:
-  # Look for "timestamp":"YYYYMMDDhhmmss"
-  local ts_line
-  ts_line=$(grep -o '"timestamp":"[0-9]\{14\}"' "$wb_json" | head -n1 || true)
-    fi
-  fi
-fi
+# crude parse without jq:
+# Look for "timestamp":"YYYYMMDDhhmmss"
+local ts_line
+ts_line=$(grep -o '"timestamp":"[0-9]\{14\}"' "$wb_json" | head -n1 || true)
 
-  echo "AshleyMadison,$type,$value,$deletion,$conf,$reason,$evidence_url,$wb_last,$code_reset,$(ts)" >> "$CSV_OUT"
-  cat "$reset_body" >> "logs/${base}.log" 2>/dev/null || true
-  echo -e "\n--- SIGNUP RESPONSE ---\n" >> "logs/${base}.log"
-  cat "$signup_body" >> "logs/${base}.log" 2>/dev/null || true
+echo "AshleyMadison,$type,$value,$deletion,$conf,$reason,$evidence_url,$wb_last,$code_reset,$(ts)" >> "$CSV_OUT"
+cat "$reset_body" >> "logs/${base}.log" 2>/dev/null || true
+echo -e "\n--- SIGNUP RESPONSE ---\n" >> "logs/${base}.log"
+cat "$signup_body" >> "logs/${base}.log" 2>/dev/null || true
 }
 
 # ---------- BUMBLE ----------
