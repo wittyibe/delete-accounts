@@ -71,7 +71,6 @@ PY
   # Look for "timestamp":"YYYYMMDDhhmmss"
   local ts_line
   ts_line=$(grep -o '"timestamp":"[0-9]\{14\}"' "$wb_json" | head -n1 || true)
-    fi
   fi
 
   echo "AshleyMadison,$type,$value,$deletion,$conf,$reason,$evidence_url,$wb_last,$code_reset,$(ts)" >> "$CSV_OUT"
@@ -171,8 +170,6 @@ tinder_check_deletion() {
         deletion="LIKELY_DELETED"; conf="high"; reason="Profile URL gone; last seen in Wayback."
       else
         deletion="LIKELY_DELETED"; conf="medium"; reason="Profile URL returns $prof_code."
-      fi
-    fi
   fi
 
   echo "Tinder,$type,$value,$deletion,$conf,$reason,$evidence_url,$wb_last,$code_reset,$(ts)" >> "$CSV_OUT"
