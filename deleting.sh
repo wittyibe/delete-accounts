@@ -110,6 +110,7 @@ bumble_check_deletion() {
     fi
   fi
 
+
   local wb_last=""; local evidence_url=""
   if [[ -n "$prof_url" ]]; then
     hcurl /tmp/bumble_prof.$$ -I "$prof_url"
