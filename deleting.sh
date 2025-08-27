@@ -98,18 +98,14 @@ bumble_check_deletion() {
   local code_signup=$(http_code_from_headers)
 
   local used_hint=$(egrep -i 'already in use|exists|registered' "$signup_body" || true)
-
-  local deletion="UNKNOWN" conf="low" reason="Insufficient signals"
-  if [[ "$code_reset" == "200" && -z "$used_hint" ]]; then
+local deletion="UNKNOWN" conf="low" reason="Insufficient signals"
+if [[ "$code_reset" == "200" && -z "$used_hint" ]]; then
     deletion="POSSIBLY_DELETED"; conf="low"; reason="Reset accepted; signup did not block email (weak due to app flow)."
-  elif [[ "$code_reset" != "200" && -z "$used_hint" ]]; then
+elif [[ "$code_reset" != "200" && -z "$used_hint" ]]; then
     deletion="NOT_FOUND_OR_LONG_AGO_DELETED"; conf="low"; reason="Reset rejected; signup gave no in-use hint."
-  elif [[ "$code_reset" == "200" && -n "$used_hint" ]]; then
+elif [[ "$code_reset" == "200" && -n "$used_hint" ]]; then
     deletion="ACTIVE_OR_NOT_DELETED"; conf="low"; reason="Reset accepted; signup suggests in use (weak signal)."
-      fi
-    fi
-  fi
-
+fi
 
   local wb_last=""; local evidence_url=""
   if [[ -n "$prof_url" ]]; then
