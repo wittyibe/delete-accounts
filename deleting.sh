@@ -67,15 +67,18 @@ print(urllib.parse.quote(sys.argv[1]))
 PY
 "$url")" > "$wb_json" || true
 
-# crude parse without jq:
-# Look for "timestamp":"YYYYMMDDhhmmss"
-local ts_line
-ts_line=$(grep -o '"timestamp":"[0-9]\{14\}"' "$wb_json" | head -n1 || true)
-
-echo "AshleyMadison,$type,$value,$deletion,$conf,$reason,$evidence_url,$wb_last,$code_reset,$(ts)" >> "$CSV_OUT"
-cat "$reset_body" >> "logs/${base}.log" 2>/dev/null || true
-echo -e "\n--- SIGNUP RESPONSE ---\n" >> "logs/${base}.log"
-cat "$signup_body" >> "logs/${base}.log" 2>/dev/null || true
+  # crude parse without jq:
+  # Look for "timestamp":"YYYYMMDDhhmmss"
+  local ts_line
+  ts_line=$(grep -o '"timestamp":"[0-9]\{14\}"' "$wb_json" | head -n1 || true)
+  
+  if [[ -n "$ts_line" ]]; then
+    # Extract timestamp and convert to readable format
+    local timestamp=$(echo "$ts_line" | cut -d'"' -f4)
+    echo "${timestamp:0:4}-${timestamp:4:2}-${timestamp:6:2}"
+  else
+    echo ""
+  fi
 }
 
 # ---------- BUMBLE ----------
@@ -91,21 +94,22 @@ bumble_check_deletion() {
     --data "{\"email\":\"$value\"}"
   local code_reset=$(http_code_from_headers)
 
-  # Bumble’s sign-up tends to be phone-based / app flow; use a placeholder probe endpoint:
+  # Bumble's sign-up tends to be phone-based / app flow; use a placeholder probe endpoint:
   hcurl "$signup_body" -X POST "https://bumble.com/api/v1/users" \
     -H "Content-Type: application/json" \
     --data "{\"email\":\"$value\",\"password\":\"fakePassw0rd!\"}"
   local code_signup=$(http_code_from_headers)
 
   local used_hint=$(egrep -i 'already in use|exists|registered' "$signup_body" || true)
-local deletion="UNKNOWN" conf="low" reason="Insufficient signals"
-if [[ "$code_reset" == "200" && -z "$used_hint" ]]; then
-    deletion="POSSIBLY_DELETED"; conf="low"; reason="Reset accepted; signup did not block email (weak due to app flow)."
-elif [[ "$code_reset" != "200" && -z "$used_hint" ]]; then
-    deletion="NOT_FOUND_OR_LONG_AGO_DELETED"; conf="low"; reason="Reset rejected; signup gave no in-use hint."
-elif [[ "$code_reset" == "200" && -n "$used_hint" ]]; then
-    deletion="ACTIVE_OR_NOT_DELETED"; conf="low"; reason="Reset accepted; signup suggests in use (weak signal)."
-fi
+  local deletion="UNKNOWN" conf="low" reason="Insufficient signals"
+  
+  if [[ "$code_reset" == "200" && -z "$used_hint" ]]; then
+      deletion="POSSIBLY_DELETED"; conf="low"; reason="Reset accepted; signup did not block email (weak due to app flow)."
+  elif [[ "$code_reset" != "200" && -z "$used_hint" ]]; then
+      deletion="NOT_FOUND_OR_LONG_AGO_DELETED"; conf="low"; reason="Reset rejected; signup gave no in-use hint."
+  elif [[ "$code_reset" == "200" && -n "$used_hint" ]]; then
+      deletion="ACTIVE_OR_NOT_DELETED"; conf="low"; reason="Reset accepted; signup suggests in use (weak signal)."
+  fi
 
   local wb_last=""; local evidence_url=""
   if [[ -n "$prof_url" ]]; then
@@ -135,7 +139,8 @@ tinder_check_deletion() {
   local reset_body="/tmp/${base}_reset.html"
   local signup_body="/tmp/${base}_signup.html"
 
-  hcurl "$reset_body" -X POST "https://api.gotinder.com/v2/auth/reset_password" \
+  # Password reset attempt
+  hcurl "$reset_body" -X POST "https://api.gotinder.com/auth/reset" \
     -H "Content-Type: application/json" \
     --data "{\"email\":\"$value\"}"
   local code_reset=$(http_code_from_headers)
@@ -150,7 +155,7 @@ tinder_check_deletion() {
 
   local deletion="UNKNOWN" conf="low" reason="Insufficient signals"
   if [[ "$code_reset" == "200" && -z "$used_hint" ]]; then
-    deletion="POSSIBLY_DELETED"; conf="low"; reason="Reset accepted; signup didn’t flag email (weak web signal)."
+    deletion="POSSIBLY_DELETED"; conf="low"; reason="Reset accepted; signup didn't flag email (weak web signal)."
   elif [[ "$code_reset" != "200" && -z "$used_hint" ]]; then
     deletion="NOT_FOUND_OR_LONG_AGO_DELETED"; conf="low"; reason="Reset rejected; signup gave no in-use hint."
   elif [[ "$code_reset" == "200" && -n "$used_hint" ]]; then
@@ -168,12 +173,168 @@ tinder_check_deletion() {
         deletion="LIKELY_DELETED"; conf="high"; reason="Profile URL gone; last seen in Wayback."
       else
         deletion="LIKELY_DELETED"; conf="medium"; reason="Profile URL returns $prof_code."
+      fi
+    fi
   fi
 
   echo "Tinder,$type,$value,$deletion,$conf,$reason,$evidence_url,$wb_last,$code_reset,$(ts)" >> "$CSV_OUT"
   cat "$reset_body" >> "logs/${base}.log" 2>/dev/null || true
   echo -e "\n--- SIGNUP RESPONSE ---\n" >> "logs/${base}.log"
   cat "$signup_body" >> "logs/${base}.log" 2>/dev/null || true
+}
+
+# ---------- POF ----------
+pof_check_deletion() {
+  local type="$1" value="$2" prof_url="$3"
+  local base="pof_$(echo "$value" | tr -c 'A-Za-z0-9' '_')"
+  local reset_body="/tmp/${base}_reset.html"
+  local signup_body="/tmp/${base}_signup.html"
+
+  # Password reset attempt
+  hcurl "$reset_body" -X POST "https://www.pof.com/passwordreset" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data "email=$value"
+  local code_reset=$(http_code_from_headers)
+
+  # Signup attempt
+  hcurl "$signup_body" -X POST "https://www.pof.com/registration" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data "email=$value&password=fakePassw0rd!"
+  local code_signup=$(http_code_from_headers)
+
+  local used_hint=$(egrep -i 'already in use|exists|registered' "$signup_body" || true)
+
+  local deletion="UNKNOWN" conf="low" reason="Insufficient signals"
+  if [[ "$code_reset" == "200" && -z "$used_hint" ]]; then
+    deletion="POSSIBLY_DELETED"; conf="medium"; reason="Reset accepted; signup didn't flag email."
+  elif [[ "$code_reset" != "200" && -z "$used_hint" ]]; then
+    deletion="NOT_FOUND_OR_LONG_AGO_DELETED"; conf="medium"; reason="Reset rejected; signup gave no in-use hint."
+  elif [[ "$code_reset" == "200" && -n "$used_hint" ]]; then
+    deletion="ACTIVE_OR_NOT_DELETED"; conf="medium"; reason="Reset accepted; signup hints in-use."
+  fi
+
+  local wb_last=""; local evidence_url=""
+  if [[ -n "$prof_url" ]]; then
+    hcurl /tmp/pof_prof.$$ -I "$prof_url"
+    local prof_code=$(http_code_from_headers)
+    evidence_url="$prof_url"
+    if [[ "$prof_code" == "404" || "$prof_code" == "410" ]]; then
+      wb_last=$(wayback_lastseen "$prof_url")
+      if [[ -n "$wb_last" ]]; then
+        deletion="LIKELY_DELETED"; conf="high"; reason="Profile URL gone; last seen in Wayback."
+      else
+        deletion="LIKELY_DELETED"; conf="medium"; reason="Profile URL returns $prof_code."
+      fi
+    fi
+  fi
+
+  echo "POF,$type,$value,$deletion,$conf,$reason,$evidence_url,$wb_last,$code_reset,$(ts)" >> "$CSV_OUT"
+  cat "$reset_body" >> "logs/${base}.log" 2>/dev/null || true
+  echo -e "\n--- SIGNUP RESPONSE ---\n" >> "logs/${base}.log"
+  cat "$signup_body" >> "logs/${base}.log" 2>/dev/null || true
+}
+
+# ---------- ASHLEY MADISON ----------
+am_check_deletion() {
+  local type="$1" value="$2" prof_url="$3"
+  local base="am_$(echo "$value" | tr -c 'A-Za-z0-9' '_')"
+  local reset_body="/tmp/${base}_reset.html"
+  local signup_body="/tmp/${base}_signup.html"
+
+  # Password reset attempt
+  hcurl "$reset_body" -X POST "https://www.ashleymadison.com/app/public/forgotpassword.p" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data "email=$value"
+  local code_reset=$(http_code_from_headers)
+
+  # Signup attempt
+  hcurl "$signup_body" -X POST "https://www.ashleymadison.com/app/register.p" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data "email=$value&password=fakePassw0rd!"
+  local code_signup=$(http_code_from_headers)
+
+  local used_hint=$(egrep -i 'already in use|exists|registered' "$signup_body" || true)
+
+  local deletion="UNKNOWN" conf="low" reason="Insufficient signals"
+  if [[ "$code_reset" == "200" && -z "$used_hint" ]]; then
+    deletion="POSSIBLY_DELETED"; conf="low"; reason="Reset accepted; signup did not block email (weak due to app flow)."
+  elif [[ "$code_reset" != "200" && -z "$used_hint" ]]; then
+    deletion="NOT_FOUND_OR_LONG_AGO_DELETED"; conf="low"; reason="Reset rejected; signup gave no in-use hint."
+  elif [[ "$code_reset" == "200" && -n "$used_hint" ]]; then
+    deletion="ACTIVE_OR_NOT_DELETED"; conf="low"; reason="Reset accepted; signup suggests in use (weak signal)."
+  fi
+
+  local wb_last=""; local evidence_url=""
+  if [[ -n "$prof_url" ]]; then
+    hcurl /tmp/am_prof.$$ -I "$prof_url"
+    local prof_code=$(http_code_from_headers)
+    evidence_url="$prof_url"
+    if [[ "$prof_code" == "404" || "$prof_code" == "410" ]]; then
+      wb_last=$(wayback_lastseen "$prof_url")
+      if [[ -n "$wb_last" ]]; then
+        deletion="LIKELY_DELETED"; conf="high"; reason="Profile URL gone; last seen in Wayback."
+      else
+        deletion="LIKELY_DELETED"; conf="medium"; reason="Profile URL returns $prof_code."
+      fi
+    fi
+  fi
+
+  echo "AshleyMadison,$type,$value,$deletion,$conf,$reason,$evidence_url,$wb_last,$code_reset,$(ts)" >> "$CSV_OUT"
+  cat "$reset_body" >> "logs/${base}.log" 2>/dev/null || true
+  echo -e "\n--- SIGNUP RESPONSE ---\n" >> "logs/${base}.log"
+  cat "$signup_body" >> "logs/${base}.log" 2>/dev/null || true
+}
+
+# ---------- MATCH ----------
+match_check_deletion() {
+  local type="$1" value="$2" prof_url="$3"
+  local base="match_$(echo "$value" | tr -c 'A-Za-z0-9' '_')"
+  local reset_body="/tmp/${base}_reset.html"
+  local signup_body="/tmp/${base}_signup.html"
+
+  # Password reset attempt
+  hcurl "$reset_body" -X POST "https://www.match.com/registration/forgotpassword" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data "email=$value"
+  local code_reset=$(http_code_from_headers)
+
+  # Signup attempt
+  hcurl "$signup_body" -X POST "https://www.match.com/registration" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data "email=$value&password=fakePassw0rd!"
+  local code_signup=$(http_code_from_headers)
+
+  local used_hint=$(egrep -i 'already in use|exists|registered' "$signup_body" || true)
+
+  local deletion="UNKNOWN" conf="low" reason="Insufficient signals"
+  if [[ "$code_reset" == "200" && -z "$used_hint" ]]; then
+    deletion="POSSIBLY_DELETED"; conf="medium"; reason="Reset accepted; signup didn't flag email."
+  elif [[ "$code_reset" != "200" && -z "$used_hint" ]]; then
+    deletion="NOT_FOUND_OR_LONG_AGO_DELETED"; conf="medium"; reason="Reset rejected; signup gave no in-use hint."
+  elif [[ "$code_reset" == "200" && -n "$used_hint" ]]; then
+    deletion="ACTIVE_OR_NOT_DELETED"; conf="medium"; reason="Reset accepted; signup hints in-use."
+  fi
+
+  local wb_last=""; local evidence_url=""
+  if [[ -n "$prof_url" ]]; then
+    hcurl /tmp/match_prof.$$ -I "$prof_url"
+    local prof_code=$(http_code_from_headers)
+    evidence_url="$prof_url"
+    if [[ "$prof_code" == "404" || "$prof_code" == "410" ]]; then
+      wb_last=$(wayback_lastseen "$prof_url")
+      if [[ -n "$wb_last" ]]; then
+        deletion="LIKELY_DELETED"; conf="high"; reason="Profile URL gone; last seen in Wayback."
+      else
+        deletion="LIKELY_DELETED"; conf="medium"; reason="Profile URL returns $prof_code."
+      fi
+    fi
+  fi
+
+  echo "Match,$type,$value,$deletion,$conf,$reason,$evidence_url,$wb_last,$code_reset,$(ts)" >> "$CSV_OUT"
+  cat "$reset_body" >> "logs/${base}.log" 2>/dev/null || true
+  echo -e "\n--- SIGNUP RESPONSE ---\n" >> "logs/${base}.log"
+  cat "$signup_body" >> "logs/${base}.log" 2>/dev/null || true
+}
 
 # ==============================
 # DRIVER
@@ -191,6 +352,7 @@ EOF
   exit 1
 fi
 
+# Run each platform check (Bumble, Tinder, POF, AshleyMadison, Match)
 while IFS=, read -r type value username profile_url; do
     [[ "$type" == "type" ]] && continue # skip header
     [[ -z "$type" || -z "$value" ]] && continue
@@ -201,15 +363,12 @@ while IFS=, read -r type value username profile_url; do
     username="$(echo "$username" | xargs)"
     profile_url="$(echo "$profile_url" | xargs)"
     
-#!/bin/bash
-# deleting.sh
-# Runs deletion/account checks across multiple platforms.
-
-# Run each platform check (Bumble, Tinder, POF, AshleyMadison, Match)
-while IFS=',' read -r type value profile_url; do
+    # Run each platform check
     bumble_check_deletion "$type" "$value" "$profile_url"
     tinder_check_deletion "$type" "$value" "$profile_url"
     pof_check_deletion "$type" "$value" "$profile_url"
     am_check_deletion "$type" "$value" "$profile_url"
     match_check_deletion "$type" "$value" "$profile_url"
-done
+done < targets.csv
+
+log "Complete. See results/deletion_results.csv and logs/ for evidence."
