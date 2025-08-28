@@ -345,9 +345,9 @@ if [[ ! -f "targets.csv" ]]; then
 [!] Missing targets.csv
 Create targets.csv with:
 type,value,username,profile_url
-email,prcsmama@gmail.com,prcsmama,https://www.pof.com/viewprofile?user=prcsmama
-email,lcummings73@outlook.com,,
-phone,9092408360,,
+email,prcsmama@gmail.com,prcsmama,prcsmama
+email,lcummings73@outlook.com,
+phone,9092408360,
 EOF
   exit 1
 fi
